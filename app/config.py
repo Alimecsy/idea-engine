@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     metadata_model: str = "openai/gpt-oss-20b"
     notion_version: str = "2026-03-11"
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=(".env", ".secrets"), extra="ignore")
 
 
 @lru_cache

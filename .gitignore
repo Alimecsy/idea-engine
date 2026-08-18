@@ -3,6 +3,12 @@ __pycache__/
 .venv/
 venv/
 .env
+.env.*
+!.env.example
+.secrets
+.secrets.*
+!.secrets.example
+.envrc
 .pytest_cache/
 .mypy_cache/
 .DS_Store
