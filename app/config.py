@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     whisper_model: str = "whisper-large-v3-turbo"
     metadata_model: str = "openai/gpt-oss-20b"
-    notion_version: str = "2022-06-28"
+    notion_version: str = "2026-03-11"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
