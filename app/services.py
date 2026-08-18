@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 
 import httpx
 from groq import Groq
@@ -30,7 +30,10 @@ class GroqService:
             response_format="json",
             temperature=0.0,
         )
-        return result.text.strip()
+        transcript = result.text.strip()
+        if not transcript:
+            raise ValueError("Groq returned an empty transcript")
+        return transcript
 
     def enrich(self, transcript: str) -> IdeaMetadata:
         schema = {
@@ -73,6 +76,19 @@ class GroqService:
         data = json.loads(response.choices[0].message.content or "{}")
         return IdeaMetadata(**data)
 
+    @staticmethod
+    def fallback_metadata(transcript: str, captured_at: datetime) -> IdeaMetadata:
+        preview = " ".join(transcript.split())
+        title = f"Voice idea — {captured_at.strftime('%Y-%m-%d %H:%M')}"
+        description = preview[:300] if preview else "Voice idea captured without metadata enrichment."
+        return IdeaMetadata(
+            title=title,
+            description=description,
+            key_insight=description,
+            summary=description,
+            themes=["Unclassified"],
+        )
+
 
 class TelegramService:
     def __init__(self, settings: Settings):
@@ -105,21 +121,24 @@ class NotionService:
         self.notion_version = settings.notion_version
 
     async def save_idea(self, metadata: IdeaMetadata, transcript: str, captured_at: datetime) -> str:
-        # Notion integrations still create database rows through /v1/pages using the database/data-source parent ID.
         payload = {
-            "parent": {"database_id": self.data_source_id},
+            "parent": {"type": "data_source_id", "data_source_id": self.data_source_id},
             "properties": {
                 "Idea": {"title": [{"text": {"content": metadata.title[:2000]}}]},
                 "Description": {"rich_text": [{"text": {"content": metadata.description[:2000]}}]},
                 "Key Insight": {"rich_text": [{"text": {"content": metadata.key_insight[:2000]}}]},
                 "Summary": {"rich_text": [{"text": {"content": metadata.summary[:2000]}}]},
                 "Themes": {"multi_select": [{"name": theme[:100]} for theme in metadata.themes]},
-                "Captured": {"date": {"start": captured_at.astimezone(timezone.utc).isoformat()}},
+                "Captured": {"date": {"start": captured_at.isoformat()}},
                 "Source": {"select": {"name": "Telegram Voice"}},
                 "Status": {"select": {"name": "Inbox"}},
             },
             "children": [
-                {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Raw Transcript"}}]}},
+                {
+                    "object": "block",
+                    "type": "heading_2",
+                    "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Raw Transcript"}}]},
+                },
                 *self._paragraph_blocks(transcript),
             ],
         }
