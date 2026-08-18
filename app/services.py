@@ -24,6 +24,9 @@ class GroqService:
         self.metadata_model = settings.metadata_model
 
     def transcribe(self, filename: str, audio: bytes) -> str:
+        # Telegram voice files use .oga; Groq only accepts .ogg/.opus etc.
+        if filename.endswith(".oga"):
+            filename = filename[: -len(".oga")] + ".ogg"
         result = self.client.audio.transcriptions.create(
             file=(filename, audio),
             model=self.whisper_model,
